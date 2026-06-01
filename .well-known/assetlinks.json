@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.juchan.eodigo",
+    "sha256_cert_fingerprints": [
+      "57:BD:53:FB:0B:74:EC:01:A9:55:5B:5C:0F:DD:35:96:B6:B0:47:F5:BC:0B:5E:EA:EF:21:EB:BA:A8:FE:07:9E"
+    ]
+  }
+}]

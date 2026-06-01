@@ -1,0 +1,5 @@
+# Local Netlify folder
+.netlify
+
+# 별도 Android TWA 프로젝트 (독립 저장소)
+eodigo-app/

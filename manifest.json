@@ -1,0 +1,21 @@
+{
+  "name": "대중교통 안내",
+  "short_name": "교통안내",
+  "description": "말 한마디로 버스·지하철 안내 — 어르신을 위한 앱",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1976D2",
+  "lang": "ko",
+  "categories": ["navigation", "utilities"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

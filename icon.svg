@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <!-- 배경 (둥근 정사각형) -->
+  <rect width="192" height="192" rx="42" fill="#1976D2"/>
+
+  <!-- 버스 아이콘 (하단 작게) -->
+  <rect x="28" y="128" width="64" height="42" rx="8" fill="rgba(255,255,255,0.25)"/>
+  <rect x="34" y="134" width="14" height="10" rx="3" fill="white"/>
+  <rect x="54" y="134" width="14" height="10" rx="3" fill="white"/>
+  <circle cx="38" cy="166" r="6" fill="white"/>
+  <circle cx="72" cy="166" r="6" fill="white"/>
+
+  <!-- 지하철 아이콘 (하단 우측 작게) -->
+  <rect x="100" y="128" width="64" height="42" rx="8" fill="rgba(255,255,255,0.25)"/>
+  <rect x="107" y="134" width="12" height="16" rx="3" fill="white"/>
+  <rect x="145" y="134" width="12" height="16" rx="3" fill="white"/>
+  <circle cx="114" cy="164" r="5" fill="white"/>
+  <circle cx="150" cy="164" r="5" fill="white"/>
+  <rect x="108" y="152" width="48" height="4" rx="2" fill="rgba(255,255,255,0.6)"/>
+
+  <!-- 마이크 아이콘 (중앙 크게) -->
+  <rect x="72" y="18" width="48" height="72" rx="24" fill="white"/>
+  <path d="M36 88 C36 136 156 136 156 88" stroke="white" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <line x1="96" y1="136" x2="96" y2="116" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <line x1="68" y1="116" x2="124" y2="116" stroke="white" stroke-width="12" stroke-linecap="round"/>
+</svg>
