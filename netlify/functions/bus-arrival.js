@@ -44,8 +44,8 @@ function nameVariants(name) {
   return [...new Set(variants)].filter(Boolean);
 }
 
-// 도시코드: 서울(11) → 경기(31) — 너무 많은 조합 시도 시 Netlify 함수 타임아웃 발생하여 2개로 제한
-const CITY_CODES = [11, 31];
+// 도시코드: 1=서울, 11=경기, 31=부산, 36=인천 등
+const CITY_CODES = [1, 11, 31, 36, 37, 38, 39];
 
 // TAGO getSttnNoList로 nodeId 조회 (도시코드 + 이름 조합 순차 시도)
 async function findNodeId(stationName) {
