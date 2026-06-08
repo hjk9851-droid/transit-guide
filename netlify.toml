@@ -1,6 +1,13 @@
 [build]
   functions = "netlify/functions"
 
+# 서울 지하철 실시간 API 프록시 (HTTP → Netlify CDN → 브라우저)
+[[redirects]]
+  from   = "/subway-proxy/*"
+  to     = "http://swopenapi.seoul.go.kr/:splat"
+  status = 200
+  force  = true
+
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
