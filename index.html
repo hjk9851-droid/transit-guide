@@ -573,6 +573,7 @@
 ════════════════════════════════════ */
 const KAKAO_KEY   = '2ec0f360a0bda79dc3a2284cbc184ff6';
 const SUBWAY_KEY  = '4f56786c626c6b7239334751574855';
+const TAGO_KEY    = '294f26a66347876ed739424ad46a88193eebe24e6db958379ad9be23d7ca926a';
 
 /* ════════════════════════════════════
    상태
@@ -1230,22 +1231,147 @@ function showRouteTextModal(txt) {
 /* ════════════════════════════════════
    실시간 도착 정보
 ════════════════════════════════════ */
+// ODsay 정류장명 → TAGO 검색용 후보 목록 ("." 포함 시 앞부분만도 시도)
+function busNameVariants(name) {
+  const cleaned = name
+    .replace(/\s*\(.*?\)$/, '')
+    .replace(/\s*(버스\s*)?정류장?$/i, '')
+    .trim();
+  const variants = [name, cleaned];
+  for (const v of [name, cleaned]) {
+    if (v.includes('.')) {
+      const head = v.split('.')[0].trim();
+      if (head) variants.push(head);
+    }
+  }
+  return [...new Set(variants)].filter(Boolean);
+}
+
+// TAGO getSttnNoList로 nodeId 조회 (cityCode 11→31 순서, 이름 후보 순차 시도)
+async function findBusNodeId(stationName) {
+  const variants = busNameVariants(stationName);
+  const cityCodes = [11, 31];
+  console.log('[버스RT] nodeId 검색 시작:', stationName, '/ 후보:', variants);
+
+  for (const nm of variants) {
+    for (const cityCode of cityCodes) {
+      try {
+        const url = `https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getSttnNoList` +
+          `?serviceKey=${TAGO_KEY}&cityCode=${cityCode}&nodeNm=${encodeURIComponent(nm)}&numOfRows=10&_type=json`;
+        console.log('[버스RT] 정류장 검색 시도:', url.replace(TAGO_KEY, '***'));
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        console.log('[버스RT] 정류장 검색 HTTP 상태:', res.status);
+        const data = await res.json();
+
+        const resultCode = data?.response?.header?.resultCode;
+        if (resultCode && resultCode !== '00') {
+          console.log(`[버스RT] TAGO 오류 cityCode=${cityCode} nm="${nm}":`, resultCode, data?.response?.header?.resultMsg);
+          continue;
+        }
+
+        const totalCount = data?.response?.body?.totalCount ?? 0;
+        const items = data?.response?.body?.items?.item;
+        if (!items || totalCount === 0) {
+          console.log(`[버스RT] 결과없음 cityCode=${cityCode} nm="${nm}" (totalCount=${totalCount})`);
+          continue;
+        }
+
+        const list = Array.isArray(items) ? items : [items];
+        console.log(`[버스RT] cityCode=${cityCode} nm="${nm}" 결과:`, list.length, '건:', JSON.stringify(list.map(i => ({ nodeid: i.nodeid, nodenm: i.nodenm }))));
+
+        const match = list.find(i => i.nodenm === nm) || list[0];
+        if (match?.nodeid) {
+          console.log(`[버스RT] ✅ nodeId 발견: ${match.nodeid} (${match.nodenm}) cityCode=${cityCode}`);
+          return { nodeId: match.nodeid, cityCode };
+        }
+      } catch (e) {
+        console.warn(`[버스RT] 정류장 검색 실패 cityCode=${cityCode} nm="${nm}":`, e.message);
+      }
+    }
+  }
+  console.log('[버스RT] ❌ nodeId 찾지 못함:', stationName);
+  return null;
+}
+
 async function fetchBusArrival(stationName, busNos, arsId, el) {
   try {
-    const params = new URLSearchParams({ stationName, busNos });
-    if (arsId && arsId !== '0') params.set('arsId', arsId);
-    const res = await fetch(`/.netlify/functions/bus-arrival?${params}`);
-    const data = await res.json();
-    if (data.error || !data.arrivals?.length) {
+    const found = await findBusNodeId(stationName);
+    if (!found) {
       el.className = 'rt-box error';
       el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
       return;
     }
+
+    const { nodeId, cityCode } = found;
+    const arrUrl = `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
+      `?serviceKey=${TAGO_KEY}&cityCode=${cityCode}&nodeId=${encodeURIComponent(nodeId)}&numOfRows=10&_type=json`;
+    console.log('[버스RT] 도착정보 조회:', arrUrl.replace(TAGO_KEY, '***'));
+
+    const res = await fetch(arrUrl, { signal: AbortSignal.timeout(8000) });
+    console.log('[버스RT] 도착정보 HTTP 상태:', res.status);
+    const data = await res.json();
+
+    const resultCode = data?.response?.header?.resultCode;
+    if (resultCode && resultCode !== '00') {
+      console.log('[버스RT] 도착정보 TAGO 오류:', resultCode, data?.response?.header?.resultMsg);
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    const totalCount = data?.response?.body?.totalCount ?? 0;
+    const items = data?.response?.body?.items?.item;
+    console.log('[버스RT] totalCount:', totalCount, '/ items:', Array.isArray(items) ? `배열(${items.length})` : typeof items);
+
+    if (!items || totalCount === 0) {
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    const list = Array.isArray(items) ? items : [items];
+    console.log('[버스RT] item[0]:', JSON.stringify(list[0]));
+
+    const busNoArr = busNos ? String(busNos).split(',').map(s => s.trim()).filter(Boolean) : [];
+    const filtered = busNoArr.length
+      ? list.filter(i => busNoArr.some(b => String(i.routeno) === b || String(i.routeNo) === b))
+      : list;
+    const finalList = filtered.length ? filtered : list;
+
+    const arrivals = finalList.slice(0, 2).map(i => {
+      const cnt  = i.arrprevstationcnt ?? i.arrPrevStationCnt ?? null;
+      const time = i.arrtime            ?? i.arrTime            ?? null;
+      const rno  = i.routeno || i.routeNo || '?';
+
+      let arrMsg;
+      if (cnt === 0 || time === 0) {
+        arrMsg = '곧 도착';
+      } else if (cnt != null && time != null) {
+        arrMsg = `${cnt}정거장 전 (약 ${Math.ceil(Number(time) / 60)}분)`;
+      } else if (time != null) {
+        arrMsg = `약 ${Math.ceil(Number(time) / 60)}분 후`;
+      } else if (cnt != null) {
+        arrMsg = `${cnt}정거장 전`;
+      } else {
+        arrMsg = '정보 없음';
+      }
+      return { routeNo: rno, arrMsg };
+    });
+
+    console.log('[버스RT] 최종 arrivals:', JSON.stringify(arrivals));
+
+    if (!arrivals.length) {
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
     el.className = 'rt-box';
-    el.innerHTML = data.arrivals.slice(0, 2).map(a =>
+    el.innerHTML = arrivals.map(a =>
       `🚌 <strong>${a.routeNo}번</strong> — ${a.arrMsg}`
     ).join('<br>');
-  } catch {
+  } catch (e) {
+    console.warn('[버스RT] 실패:', e.message);
     el.className = 'rt-box error';
     el.textContent = '🚌 실시간 정보를 불러오지 못했어요';
   }
