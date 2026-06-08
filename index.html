@@ -1247,72 +1247,120 @@ function busNameVariants(name) {
   return [...new Set(variants)].filter(Boolean);
 }
 
-// 정류장 검색(getSttnNoList) 없이 nodeNm으로 바로 도착정보 조회
-// (BusSttnInfoInqireService/getSttnNoList 가 403을 반환하여 우회)
+// TAGO getSttnNoList로 nodeId 조회 (인증키를 encodeURIComponent로 인코딩)
 // cityCode 11(서울) → 31(경기) 순서, 이름 후보 순차 시도
+async function findBusNodeId(stationName) {
+  const variants = busNameVariants(stationName);
+  const cityCodes = [11, 31];
+  console.log('[버스RT] nodeId 검색 시작:', stationName, '/ 후보:', variants);
+
+  for (const nm of variants) {
+    for (const cityCode of cityCodes) {
+      const url = `https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getSttnNoList` +
+        `?serviceKey=${encodeURIComponent(TAGO_KEY)}&cityCode=${cityCode}&nodeNm=${encodeURIComponent(nm)}&numOfRows=10&_type=json`;
+      console.log('[버스RT] 정류장 검색 호출 URL (전체):', url);
+
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        console.log(`[버스RT] 정류장 검색 HTTP 상태 cityCode=${cityCode} nm="${nm}":`, res.status);
+
+        const raw = await res.text();
+        console.log(`[버스RT] 정류장 검색 원본 응답(앞400) cityCode=${cityCode} nm="${nm}":`, raw.slice(0, 400));
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch (e) {
+          console.log(`[버스RT] 정류장 검색 JSON 파싱 실패 (XML/HTML 응답일 수 있음) cityCode=${cityCode} nm="${nm}":`, e.message);
+          continue;
+        }
+
+        const resultCode = data?.response?.header?.resultCode;
+        if (resultCode && resultCode !== '00') {
+          console.log(`[버스RT] 정류장 검색 TAGO 오류 cityCode=${cityCode} nm="${nm}":`, resultCode, data?.response?.header?.resultMsg);
+          continue;
+        }
+
+        const totalCount = data?.response?.body?.totalCount ?? 0;
+        const items = data?.response?.body?.items?.item;
+        if (!items || totalCount === 0) {
+          console.log(`[버스RT] 정류장 검색 결과없음 cityCode=${cityCode} nm="${nm}" (totalCount=${totalCount})`);
+          continue;
+        }
+
+        const list = Array.isArray(items) ? items : [items];
+        console.log(`[버스RT] 정류장 검색 cityCode=${cityCode} nm="${nm}" 결과:`, list.length, '건:', JSON.stringify(list.map(i => ({ nodeid: i.nodeid, nodenm: i.nodenm }))));
+
+        const match = list.find(i => i.nodenm === nm) || list[0];
+        if (match?.nodeid) {
+          console.log(`[버스RT] ✅ nodeId 발견: ${match.nodeid} (${match.nodenm}) cityCode=${cityCode}`);
+          return { nodeId: match.nodeid, cityCode };
+        }
+      } catch (e) {
+        console.log(`[버스RT] 정류장 검색 실패 cityCode=${cityCode} nm="${nm}":`, e.message);
+      }
+    }
+  }
+  console.log('[버스RT] ❌ nodeId 찾지 못함:', stationName);
+  return null;
+}
+
 async function fetchBusArrival(stationName, busNos, arsId, el) {
   console.log('[버스RT] 함수 시작', stationName);
   try {
-    const variants = busNameVariants(stationName);
-    const cityCodes = [11, 31];
-    console.log('[버스RT] 도착정보 직접 조회 시작:', stationName, '/ 후보:', variants);
+    const found = await findBusNodeId(stationName);
+    console.log('[버스RT] findBusNodeId 결과:', found);
 
-    let list = null;
-
-    outer:
-    for (const nm of variants) {
-      for (const cityCode of cityCodes) {
-        const arrUrl = `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
-          `?serviceKey=${TAGO_KEY}&cityCode=${cityCode}&nodeNm=${encodeURIComponent(nm)}&numOfRows=10&_type=json`;
-        console.log('[버스RT] 호출 URL (전체):', arrUrl);
-
-        try {
-          const res = await fetch(arrUrl, { signal: AbortSignal.timeout(8000) });
-          console.log(`[버스RT] HTTP 상태 cityCode=${cityCode} nm="${nm}":`, res.status);
-
-          const raw = await res.text();
-          console.log(`[버스RT] 원본 응답(앞500) cityCode=${cityCode} nm="${nm}":`, raw.slice(0, 500));
-
-          let data;
-          try {
-            data = JSON.parse(raw);
-          } catch (e) {
-            console.log(`[버스RT] JSON 파싱 실패 (XML/HTML 응답일 수 있음) cityCode=${cityCode} nm="${nm}":`, e.message);
-            continue;
-          }
-
-          console.log(`[버스RT] 파싱된 응답 구조 cityCode=${cityCode} nm="${nm}":`, JSON.stringify(data?.response?.header), '/ body keys:', Object.keys(data?.response?.body || {}));
-
-          const resultCode = data?.response?.header?.resultCode;
-          if (resultCode && resultCode !== '00') {
-            console.log(`[버스RT] TAGO 오류 cityCode=${cityCode} nm="${nm}":`, resultCode, data?.response?.header?.resultMsg);
-            continue;
-          }
-
-          const totalCount = data?.response?.body?.totalCount ?? 0;
-          const items = data?.response?.body?.items?.item;
-          console.log(`[버스RT] totalCount=${totalCount} cityCode=${cityCode} nm="${nm}" / items:`, Array.isArray(items) ? `배열(${items.length})` : typeof items);
-
-          if (!items || totalCount === 0) {
-            console.log(`[버스RT] 결과없음 cityCode=${cityCode} nm="${nm}"`);
-            continue;
-          }
-
-          list = Array.isArray(items) ? items : [items];
-          console.log(`[버스RT] ✅ 도착정보 발견: ${list.length}건 (nm="${nm}" cityCode=${cityCode}) / item[0]:`, JSON.stringify(list[0]));
-          break outer;
-        } catch (e) {
-          console.log(`[버스RT] 조회 실패 cityCode=${cityCode} nm="${nm}":`, e.message);
-        }
-      }
-    }
-
-    if (!list) {
-      console.log('[버스RT] ❌ 모든 조합에서 도착정보 없음:', stationName);
+    if (!found) {
       el.className = 'rt-box error';
       el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
       return;
     }
+
+    const { nodeId, cityCode } = found;
+    const arrUrl = `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
+      `?serviceKey=${encodeURIComponent(TAGO_KEY)}&cityCode=${cityCode}&nodeId=${encodeURIComponent(nodeId)}&numOfRows=10&_type=json`;
+    console.log('[버스RT] 도착정보 호출 URL (전체):', arrUrl);
+
+    const res = await fetch(arrUrl, { signal: AbortSignal.timeout(8000) });
+    console.log('[버스RT] 도착정보 HTTP 상태:', res.status);
+
+    const raw = await res.text();
+    console.log('[버스RT] 도착정보 원본 응답(앞500):', raw.slice(0, 500));
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.log('[버스RT] 도착정보 JSON 파싱 실패 (XML/HTML 응답일 수 있음):', e.message);
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    console.log('[버스RT] 도착정보 파싱된 응답 구조:', JSON.stringify(data?.response?.header), '/ body keys:', Object.keys(data?.response?.body || {}));
+
+    const resultCode = data?.response?.header?.resultCode;
+    if (resultCode && resultCode !== '00') {
+      console.log('[버스RT] 도착정보 TAGO 오류:', resultCode, data?.response?.header?.resultMsg);
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    const totalCount = data?.response?.body?.totalCount ?? 0;
+    const items = data?.response?.body?.items?.item;
+    console.log('[버스RT] totalCount:', totalCount, '/ items:', Array.isArray(items) ? `배열(${items.length})` : typeof items);
+
+    if (!items || totalCount === 0) {
+      console.log('[버스RT] ❌ 도착정보 없음:', stationName);
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    const list = Array.isArray(items) ? items : [items];
+    console.log('[버스RT] item[0]:', JSON.stringify(list[0]));
 
     const busNoArr = busNos ? String(busNos).split(',').map(s => s.trim()).filter(Boolean) : [];
     const filtered = busNoArr.length
