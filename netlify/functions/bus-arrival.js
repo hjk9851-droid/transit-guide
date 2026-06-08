@@ -56,7 +56,7 @@ async function findNodeId(stationName) {
     for (const cityCode of CITY_CODES) {
       try {
         const url =
-          `http://apis.data.go.kr/1613000/BusSttnInfoInqireService/getSttnNoList` +
+          `https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getSttnNoList` +
           `?serviceKey=${TAGO_KEY}` +
           `&cityCode=${cityCode}` +
           `&nodeNm=${encodeURIComponent(nm)}` +
@@ -153,7 +153,7 @@ exports.handler = async (event) => {
 
     // ── STEP 2: 실시간 도착 정보 조회 (nodeId와 같은 cityCode 사용) ───────
     const arrUrl =
-      `http://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
+      `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
       `?serviceKey=${TAGO_KEY}` +
       `&cityCode=${cityCode}` +
       `&nodeId=${encodeURIComponent(nodeId)}` +
