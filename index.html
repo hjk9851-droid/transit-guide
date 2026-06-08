@@ -1251,6 +1251,7 @@ function busNameVariants(name) {
 // (BusSttnInfoInqireService/getSttnNoList 가 403을 반환하여 우회)
 // cityCode 11(서울) → 31(경기) 순서, 이름 후보 순차 시도
 async function fetchBusArrival(stationName, busNos, arsId, el) {
+  console.log('[버스RT] 함수 시작', stationName);
   try {
     const variants = busNameVariants(stationName);
     const cityCodes = [11, 31];
@@ -1384,10 +1385,13 @@ async function fetchSubwayArrival(stationName, lineName, el) {
     `https://swopenapi.seoul.go.kr${apiPath}`,
   ];
   console.log('[지하철RT] 역명:', stationName, '→', name, '/ 호선:', lineName);
+  console.log('[지하철RT] 시도할 URL 목록 (순서대로):', urls);
 
   let data = null;
   for (const url of urls) {
     try {
+      const isProxy = url.startsWith('/subway-proxy');
+      console.log(`[지하철RT] → ${isProxy ? 'Netlify 프록시 경로(/subway-proxy) 사용' : 'swopenapi.seoul.go.kr 직접 HTTPS 호출'}`);
       // 1. 실제로 호출하는 URL 전체 출력 (디버깅용 — 키 노출되지만 자기 키이므로 그대로 출력)
       console.log('[지하철RT] 호출 URL (전체):', url);
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
