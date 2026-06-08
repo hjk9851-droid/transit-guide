@@ -1261,7 +1261,16 @@ async function findBusNodeId(stationName) {
         console.log('[버스RT] 정류장 검색 시도:', url.replace(TAGO_KEY, '***'));
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         console.log('[버스RT] 정류장 검색 HTTP 상태:', res.status);
-        const data = await res.json();
+        const raw = await res.text();
+        console.log(`[버스RT] 정류장 검색 원본 응답(앞400) cityCode=${cityCode} nm="${nm}":`, raw.slice(0, 400));
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch (e) {
+          console.log(`[버스RT] 정류장 검색 JSON 파싱 실패 (XML/HTML 응답일 수 있음) cityCode=${cityCode} nm="${nm}":`, e.message);
+          continue;
+        }
 
         const resultCode = data?.response?.header?.resultCode;
         if (resultCode && resultCode !== '00') {
@@ -1285,7 +1294,7 @@ async function findBusNodeId(stationName) {
           return { nodeId: match.nodeid, cityCode };
         }
       } catch (e) {
-        console.warn(`[버스RT] 정류장 검색 실패 cityCode=${cityCode} nm="${nm}":`, e.message);
+        console.log(`[버스RT] 정류장 검색 실패 cityCode=${cityCode} nm="${nm}":`, e.message);
       }
     }
   }
@@ -1296,6 +1305,7 @@ async function findBusNodeId(stationName) {
 async function fetchBusArrival(stationName, busNos, arsId, el) {
   try {
     const found = await findBusNodeId(stationName);
+    console.log('[버스RT] findBusNodeId 결과:', found);
     if (!found) {
       el.className = 'rt-box error';
       el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
@@ -1309,7 +1319,20 @@ async function fetchBusArrival(stationName, busNos, arsId, el) {
 
     const res = await fetch(arrUrl, { signal: AbortSignal.timeout(8000) });
     console.log('[버스RT] 도착정보 HTTP 상태:', res.status);
-    const data = await res.json();
+    const raw = await res.text();
+    console.log('[버스RT] 도착정보 원본 응답(앞500):', raw.slice(0, 500));
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.log('[버스RT] 도착정보 JSON 파싱 실패 (XML/HTML 응답일 수 있음):', e.message);
+      el.className = 'rt-box error';
+      el.textContent = '🚌 실시간 정보 없음 (운행 중단 또는 대기 중)';
+      return;
+    }
+
+    console.log('[버스RT] 도착정보 파싱된 응답 구조:', JSON.stringify(data?.response?.header), '/ body keys:', Object.keys(data?.response?.body || {}));
 
     const resultCode = data?.response?.header?.resultCode;
     if (resultCode && resultCode !== '00') {
@@ -1371,7 +1394,7 @@ async function fetchBusArrival(stationName, busNos, arsId, el) {
       `🚌 <strong>${a.routeNo}번</strong> — ${a.arrMsg}`
     ).join('<br>');
   } catch (e) {
-    console.warn('[버스RT] 실패:', e.message);
+    console.log('[버스RT] 실패:', e.message);
     el.className = 'rt-box error';
     el.textContent = '🚌 실시간 정보를 불러오지 못했어요';
   }
@@ -1425,48 +1448,46 @@ async function fetchSubwayArrival(stationName, lineName, el) {
     return;
   }
 
-  // ⚠️ 서울 API는 성공 시에도 errorMessage를 반환 (code: "INFO-000" = 성공)
-  if (data.errorMessage) {
-    const code   = data.errorMessage.code   || '';
-    const status = data.errorMessage.status || 0;
-    const msg    = data.errorMessage.message || '';
-    console.log('[지하철RT] errorMessage:', code, status, msg);
-    // INFO-000 = 정상 응답 → 계속 파싱
-    // 그 외 (INFO-200: 데이터 없음 등) = 실제 오류
-    if (code !== 'INFO-000') {
-      el.className = 'rt-box error';
-      el.textContent = '🚇 실시간 정보 없음 (막차 이후이거나 정보 없음)';
-      return;
-    }
-  }
+  // 디버깅용: 전체 응답 로그 (앞부분만)
+  console.log('[지하철RT] 전체 응답(JSON 앞1500):', JSON.stringify(data).slice(0, 1500));
 
   const list = data.realtimeArrivalList || [];
-  console.log('[지하철RT] list 건수:', list.length, list[0] ? '/ item[0]:' + JSON.stringify(list[0]) : '');
+  console.log('[지하철RT] realtimeArrivalList 건수:', list.length, list[0] ? '/ item[0]:' + JSON.stringify(list[0]) : '');
 
-  if (!list.length) {
-    el.className = 'rt-box error';
-    el.textContent = '🚇 실시간 정보 없음 (막차 이후이거나 정보 없음)';
+  // ✅ 실제 도착 정보(realtimeArrivalList)가 있으면 errorMessage 유무·코드와 무관하게 우선 표시
+  //    (서울 API는 성공 시에도 errorMessage를 함께 내려주므로, 코드만 보고 판단하면
+  //     데이터가 와도 "정보 없음"으로 잘못 처리될 수 있음)
+  if (list.length) {
+    const lineKey = lineName ? lineName.replace(/호선$|선$/g, '').trim() : '';
+    const filtered = lineKey
+      ? list.filter(i => (i.trainLineNm || '').includes(lineKey))
+      : list;
+    const show = (filtered.length ? filtered : list).slice(0, 2);
+
+    el.className = 'rt-box';
+    el.innerHTML = show.map((a, idx) => {
+      const timeMsg  = parseArvlMsg(a.arvlMsg2);
+      const isNow    = timeMsg === '곧 도착';
+      const timeColor = isNow ? '#C62828' : '#0D47A1';
+      const sep = idx > 0 ? '<div style="border-top:1px solid #C5E3FF;margin:10px 0"></div>' : '';
+      return `${sep}
+        <div style="font-size:15px;color:#555;margin-bottom:4px">🚇 ${a.trainLineNm || lineName || ''}</div>
+        <div style="font-size:28px;font-weight:900;color:${timeColor};line-height:1.2">${timeMsg}</div>
+        ${a.arvlMsg3 ? `<div style="font-size:14px;color:#777;margin-top:2px">${a.arvlMsg3}</div>` : ''}`;
+    }).join('');
     return;
   }
 
-  // 호선 필터 (없으면 전체)
-  const lineKey = lineName ? lineName.replace(/호선$|선$/g, '').trim() : '';
-  const filtered = lineKey
-    ? list.filter(i => (i.trainLineNm || '').includes(lineKey))
-    : list;
-  const show = (filtered.length ? filtered : list).slice(0, 2);
+  // realtimeArrivalList가 비어있을 때만 errorMessage로 원인 로그
+  if (data.errorMessage) {
+    const code   = data.errorMessage.code    || '';
+    const status = data.errorMessage.status  || 0;
+    const msg    = data.errorMessage.message || '';
+    console.log('[지하철RT] errorMessage (도착정보 없음):', code, status, msg);
+  }
 
-  el.className = 'rt-box';
-  el.innerHTML = show.map((a, idx) => {
-    const timeMsg  = parseArvlMsg(a.arvlMsg2);
-    const isNow    = timeMsg === '곧 도착';
-    const timeColor = isNow ? '#C62828' : '#0D47A1';
-    const sep = idx > 0 ? '<div style="border-top:1px solid #C5E3FF;margin:10px 0"></div>' : '';
-    return `${sep}
-      <div style="font-size:15px;color:#555;margin-bottom:4px">🚇 ${a.trainLineNm || lineName || ''}</div>
-      <div style="font-size:28px;font-weight:900;color:${timeColor};line-height:1.2">${timeMsg}</div>
-      ${a.arvlMsg3 ? `<div style="font-size:14px;color:#777;margin-top:2px">${a.arvlMsg3}</div>` : ''}`;
-  }).join('');
+  el.className = 'rt-box error';
+  el.textContent = '🚇 실시간 정보 없음 (막차 이후이거나 정보 없음)';
 }
 
 function speakRoute(path) {
