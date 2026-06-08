@@ -1430,14 +1430,26 @@ async function fetchSubwayArrival(stationName, lineName, el) {
   let data = null;
   for (const url of urls) {
     try {
-      console.log('[지하철RT] 시도:', url.replace(SUBWAY_KEY, '***'));
+      // 1. 실제로 호출하는 URL 전체 출력 (디버깅용 — 키 노출되지만 자기 키이므로 그대로 출력)
+      console.log('[지하철RT] 호출 URL (전체):', url);
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      console.log('[지하철RT] HTTP 상태:', res.status);
-      data = await res.json();
+      console.log('[지하철RT] HTTP 상태:', res.status, '/', url);
+
+      const raw = await res.text();
+      // 2. API 응답 raw JSON 출력
+      console.log('[지하철RT] 응답 raw JSON:', raw);
+
+      try {
+        data = JSON.parse(raw);
+      } catch (parseErr) {
+        console.warn('[지하철RT] JSON 파싱 실패:', parseErr.message);
+        data = null;
+        continue;
+      }
       console.log('[지하철RT] 응답 keys:', Object.keys(data));
       break;
     } catch(e) {
-      console.warn('[지하철RT] 실패:', e.message);
+      console.warn('[지하철RT] 실패:', e.message, '/', url);
       data = null;
     }
   }
@@ -1448,10 +1460,8 @@ async function fetchSubwayArrival(stationName, lineName, el) {
     return;
   }
 
-  // 디버깅용: 전체 응답 로그 (앞부분만)
-  console.log('[지하철RT] 전체 응답(JSON 앞1500):', JSON.stringify(data).slice(0, 1500));
-
   const list = data.realtimeArrivalList || [];
+  // 3. realtimeArrivalList 건수 출력
   console.log('[지하철RT] realtimeArrivalList 건수:', list.length, list[0] ? '/ item[0]:' + JSON.stringify(list[0]) : '');
 
   // ✅ 실제 도착 정보(realtimeArrivalList)가 있으면 errorMessage 유무·코드와 무관하게 우선 표시
