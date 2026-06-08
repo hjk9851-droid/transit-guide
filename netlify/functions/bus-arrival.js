@@ -29,7 +29,18 @@ function nameVariants(name) {
     .replace(/\s*\(.*?\)$/, '')           // "(앞)" 등 괄호 제거
     .replace(/\s*(버스\s*)?정류장?$/i, '') // "버스정류장" 접미사 제거
     .trim();
-  return [...new Set([name, cleaned])].filter(Boolean);
+
+  const variants = [name, cleaned];
+
+  // "." 포함 시 앞부분만 잘라서도 시도 (예: "배탈고개.일신건영아파트" → "배탈고개")
+  for (const v of [name, cleaned]) {
+    if (v.includes('.')) {
+      const head = v.split('.')[0].trim();
+      if (head) variants.push(head);
+    }
+  }
+
+  return [...new Set(variants)].filter(Boolean);
 }
 
 // 우선순위 도시코드: 서울→경기→인천→대전→부산→대구→광주
@@ -50,8 +61,20 @@ async function findNodeId(stationName) {
           `&nodeNm=${encodeURIComponent(nm)}` +
           `&numOfRows=10&_type=json`;
 
+        console.log(`[bus-arrival] 조회 시도 → URL: ${url.replace(TAGO_KEY, '***')}`);
+
         const raw = await httpGet(url);
-        const data = JSON.parse(raw);
+        console.log(`[bus-arrival] 원본 응답(앞400) cityCode=${cityCode} nm="${nm}":`, raw.slice(0, 400));
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch (parseErr) {
+          console.log(`[bus-arrival] JSON 파싱 실패 (XML 응답일 수 있음) cityCode=${cityCode} nm="${nm}":`, parseErr.message, '/ 원본(앞200):', raw.slice(0, 200));
+          continue;
+        }
+
+        console.log(`[bus-arrival] 파싱된 응답 구조 cityCode=${cityCode} nm="${nm}":`, JSON.stringify(data?.response?.header), '/ body keys:', Object.keys(data?.response?.body || {}));
 
         // 오류 응답 확인
         const resultCode = data?.response?.header?.resultCode;
@@ -64,17 +87,17 @@ async function findNodeId(stationName) {
         const items = data?.response?.body?.items?.item;
 
         if (!items || totalCount === 0) {
-          console.log(`[bus-arrival] 결과없음 cityCode=${cityCode} nm="${nm}"`);
+          console.log(`[bus-arrival] 결과없음 cityCode=${cityCode} nm="${nm}" (totalCount=${totalCount})`);
           continue;
         }
 
         const list = Array.isArray(items) ? items : [items];
-        console.log(`[bus-arrival] cityCode=${cityCode} nm="${nm}" 결과:`, list.length, '건 / item[0]:', JSON.stringify(list[0]));
+        console.log(`[bus-arrival] cityCode=${cityCode} nm="${nm}" 결과:`, list.length, '건 / 전체 목록:', JSON.stringify(list.map(i => ({ nodeid: i.nodeid, nodenm: i.nodenm }))));
 
         // 정확 일치 우선, 없으면 첫 번째 항목
         const match = list.find(i => i.nodenm === nm) || list[0];
         if (match?.nodeid) {
-          console.log(`[bus-arrival] ✅ nodeId 발견: nodeId=${match.nodeid} nodenm=${match.nodenm} cityCode=${cityCode}`);
+          console.log(`[bus-arrival] ✅ nodeId 발견: nodeId=${match.nodeid} nodenm=${match.nodenm} cityCode=${cityCode} (검색어="${nm}")`);
           return { nodeId: match.nodeid, cityCode };
         }
       } catch (e) {
