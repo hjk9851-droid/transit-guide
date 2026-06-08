@@ -1,7 +1,8 @@
 const https = require('https');
 const http  = require('http');
 
-const TAGO_KEY = process.env.TAGO_KEY || '';
+// 환경변수 전달 문제로 인한 403 의심 — 테스트를 위해 하드코딩
+const TAGO_KEY = '294f26a66347876ed739424ad46a88193eebe24e6db958379ad9be23d7ca926a';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
