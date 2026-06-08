@@ -571,7 +571,8 @@
 /* ════════════════════════════════════
    API 키
 ════════════════════════════════════ */
-const KAKAO_KEY = '2ec0f360a0bda79dc3a2284cbc184ff6';
+const KAKAO_KEY   = '2ec0f360a0bda79dc3a2284cbc184ff6';
+const SUBWAY_KEY  = '4f56786c626c6b7239334751574855';
 
 /* ════════════════════════════════════
    상태
@@ -1261,25 +1262,57 @@ function parseArvlMsg(msg2) {
 }
 
 async function fetchSubwayArrival(stationName, lineName, el) {
+  // 역명 정제: "강남역(2호선)" → "강남"
+  const name = stationName
+    .replace(/\(.*?\)/g, '')
+    .replace(/\s+\d+호선$/, '')
+    .replace(/역$/, '')
+    .trim();
+
+  // HTTPS 사용: Netlify(HTTPS) 페이지에서 HTTP 호출 시 Mixed Content 차단 방지
+  const url = `https://swopenapi.seoul.go.kr/api/subway/${SUBWAY_KEY}/json/realtimeStationArrival/0/5/${encodeURIComponent(name)}`;
+  console.log('[지하철RT] 직접 호출:', url.replace(SUBWAY_KEY, '***'), '/ 원래역명:', stationName);
+
   try {
-    const params = new URLSearchParams({ stationName, lineName: lineName || '' });
-    const res = await fetch(`/.netlify/functions/subway-arrival?${params}`);
+    const res = await fetch(url);
+    console.log('[지하철RT] HTTP 상태:', res.status);
     const data = await res.json();
-    console.log('[지하철RT 응답]', stationName, data);
-    if (data.error || !data.arrivals?.length) {
+    console.log('[지하철RT] 응답 keys:', Object.keys(data), '/ list 건수:', data.realtimeArrivalList?.length ?? 'N/A');
+    if (data.realtimeArrivalList?.length) {
+      console.log('[지하철RT] item[0]:', JSON.stringify(data.realtimeArrivalList[0]));
+    }
+
+    if (data.errorMessage) {
+      console.log('[지하철RT] errorMessage:', JSON.stringify(data.errorMessage));
       el.className = 'rt-box error';
       el.textContent = '🚇 실시간 정보 없음 (막차 이후이거나 정보 없음)';
       return;
     }
+
+    const list = data.realtimeArrivalList || [];
+    if (!list.length) {
+      el.className = 'rt-box error';
+      el.textContent = '🚇 실시간 정보 없음 (막차 이후이거나 정보 없음)';
+      return;
+    }
+
+    // 호선 필터
+    const lineKey = lineName ? lineName.replace(/[호선]$/g, '').trim() : '';
+    const filtered = lineKey
+      ? list.filter(i => (i.trainLineNm || '').includes(lineKey))
+      : list;
+    const show = (filtered.length ? filtered : list).slice(0, 2);
+
     el.className = 'rt-box';
-    el.innerHTML = data.arrivals.slice(0, 2).map((a, idx) => {
+    el.innerHTML = show.map((a, idx) => {
       const timeMsg = parseArvlMsg(a.arvlMsg2);
       const isNow = timeMsg === '곧 도착';
       const timeColor = isNow ? '#C62828' : '#0D47A1';
       const sep = idx > 0 ? '<div style="border-top:1px solid #C5E3FF;margin:10px 0"></div>' : '';
       return `${sep}
-        <div style="font-size:15px;color:#555;margin-bottom:4px">🚇 ${a.trainLineNm || lineName}</div>
-        <div style="font-size:28px;font-weight:900;color:${timeColor};line-height:1.2">${timeMsg}</div>`;
+        <div style="font-size:15px;color:#555;margin-bottom:4px">🚇 ${a.trainLineNm || lineName || ''}</div>
+        <div style="font-size:28px;font-weight:900;color:${timeColor};line-height:1.2">${timeMsg}</div>
+        ${a.arvlMsg3 ? `<div style="font-size:14px;color:#777;margin-top:2px">${a.arvlMsg3}</div>` : ''}`;
     }).join('');
   } catch(e) {
     console.error('[지하철RT 오류]', e);
