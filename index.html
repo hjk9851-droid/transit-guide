@@ -1042,9 +1042,12 @@ function buildStepRow(sp, prevSp, nextSp) {
     rtBox.className = 'rt-box loading';
     rtBox.textContent = '🔄 실시간 도착 정보 불러오는 중...';
     inner.appendChild(rtBox);
-    const arsId = sp.passStopList?.stations?.[0]?.arsId || '';
-    console.log('[버스RT] stationName:', busStationName, 'buses:', buses, 'arsId:', arsId);
-    if (busStationName) fetchBusArrival(busStationName, buses, arsId, rtBox);
+    // ODsay passStopList.stations[0]에서 정류장 ID 추출 (실제 필드명은 arsID/stationID — 대소문자 변형 모두 대응)
+    const stop0 = sp.passStopList?.stations?.[0] || {};
+    const arsId     = stop0.arsID     || stop0.arsId     || stop0.ARS_ID     || '';
+    const stationId = stop0.stationID || stop0.stationId || stop0.STATION_ID || '';
+    console.log('[버스RT] stationName:', busStationName, 'buses:', buses, 'arsId:', arsId, 'stationId:', stationId, '/ stop0:', JSON.stringify(stop0));
+    if (busStationName) fetchBusArrival(busStationName, buses, arsId, stationId, rtBox);
     else rtBox.style.display = 'none';
 
     if (sp.startX) {
@@ -1233,11 +1236,12 @@ function showRouteTextModal(txt) {
 ════════════════════════════════════ */
 // Netlify Function(/.netlify/functions/bus-arrival)을 통해 TAGO API 호출
 // (브라우저 직접 호출은 TAGO가 CORS/Forbidden을 반환하여 서버 경유로 복원)
-async function fetchBusArrival(stationName, busNos, arsId, el) {
-  console.log('[버스RT] 함수 시작', stationName, '/ busNos:', busNos, '/ arsId:', arsId);
+async function fetchBusArrival(stationName, busNos, arsId, stationId, el) {
+  console.log('[버스RT] 함수 시작', stationName, '/ busNos:', busNos, '/ arsId:', arsId, '/ stationId:', stationId);
   try {
     const params = new URLSearchParams({ stationName, busNos });
     if (arsId && arsId !== '0') params.set('arsId', arsId);
+    if (stationId && stationId !== '0') params.set('stationId', stationId);
     const url = `/.netlify/functions/bus-arrival?${params}`;
     console.log('[버스RT] 호출 URL:', url);
 

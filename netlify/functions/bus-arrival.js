@@ -111,15 +111,57 @@ async function findNodeId(stationName) {
   return null;
 }
 
+// nodeId + cityCode로 실시간 도착정보 조회 (raw 응답 로깅 포함)
+async function fetchArrivalList(nodeId, cityCode) {
+  const arrUrl =
+    `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
+    `?serviceKey=${TAGO_KEY}` +
+    `&cityCode=${cityCode}` +
+    `&nodeId=${encodeURIComponent(nodeId)}` +
+    `&numOfRows=10&_type=json`;
+
+  console.log(`[bus-arrival] 도착정보 조회 시도 nodeId=${nodeId} cityCode=${cityCode}`);
+
+  let raw;
+  try {
+    raw = await httpGet(arrUrl);
+  } catch (e) {
+    console.log(`[bus-arrival] 도착정보 조회 실패 nodeId=${nodeId} cityCode=${cityCode}:`, e.message);
+    return null;
+  }
+  console.log(`[bus-arrival] 도착정보 응답(앞400) nodeId=${nodeId} cityCode=${cityCode}:`, raw.slice(0, 400));
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    console.log(`[bus-arrival] 도착정보 JSON 파싱 실패 nodeId=${nodeId} cityCode=${cityCode} (XML일 수 있음):`, raw.slice(0, 200));
+    return null;
+  }
+
+  const resultCode = data?.response?.header?.resultCode;
+  if (resultCode && resultCode !== '00') {
+    console.log(`[bus-arrival] 도착정보 TAGO 오류 nodeId=${nodeId} cityCode=${cityCode}:`, resultCode, data?.response?.header?.resultMsg);
+    return { list: [], totalCount: 0 };
+  }
+
+  const totalCount = data?.response?.body?.totalCount ?? 0;
+  const items = data?.response?.body?.items?.item;
+  const list = items ? (Array.isArray(items) ? items : [items]) : [];
+  console.log(`[bus-arrival] 도착정보 결과 nodeId=${nodeId} cityCode=${cityCode}: totalCount=${totalCount} 건수=${list.length}`, list[0] ? '/ item[0]:' + JSON.stringify(list[0]) : '');
+  return { list, totalCount };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS, body: '' };
   }
 
   const q = event.queryStringParameters || {};
-  const { stationName, busNos } = q;
+  const { stationName, busNos, arsId, stationId } = q;
+  const directId = arsId || stationId || '';
 
-  console.log('[bus-arrival] 요청:', { stationName, busNos });
+  console.log('[bus-arrival] 요청:', { stationName, busNos, arsId, stationId });
 
   if (!stationName) {
     return {
@@ -138,66 +180,51 @@ exports.handler = async (event) => {
   }
 
   try {
-    // ── STEP 1: stationName으로 nodeId 조회 ──────────────────────────────
-    const found = await findNodeId(stationName);
+    let list = null;
 
-    if (!found) {
-      return {
-        statusCode: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arrivals: [], debug: `nodeId not found for: ${stationName}` }),
-      };
+    // ── STEP 0: ODsay가 넘겨준 arsId/stationId가 있으면 정류장 검색 없이 바로 도착정보 조회
+    //           (BusSttnInfoInqireService/getSttnNoList 가 자주 timeout 나서 우회)
+    if (directId) {
+      console.log(`[bus-arrival] arsId/stationId 직접 사용 시도: nodeId=${directId}`);
+      for (const cityCode of CITY_CODES) {
+        const result = await fetchArrivalList(directId, cityCode);
+        if (result && result.list.length) {
+          list = result.list;
+          console.log(`[bus-arrival] ✅ arsId/stationId 직접조회 성공 nodeId=${directId} cityCode=${cityCode} 건수=${list.length}`);
+          break;
+        }
+      }
+      if (!list) {
+        console.log(`[bus-arrival] arsId/stationId(${directId})로 조회 실패 — stationName 검색으로 폴백`);
+      }
     }
 
-    const { nodeId, cityCode } = found;
+    // ── STEP 1~2: (직접 조회 실패 시) stationName으로 nodeId 검색 후 도착정보 조회
+    if (!list) {
+      const found = await findNodeId(stationName);
 
-    // ── STEP 2: 실시간 도착 정보 조회 (nodeId와 같은 cityCode 사용) ───────
-    const arrUrl =
-      `https://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList` +
-      `?serviceKey=${TAGO_KEY}` +
-      `&cityCode=${cityCode}` +
-      `&nodeId=${encodeURIComponent(nodeId)}` +
-      `&numOfRows=10&_type=json`;
+      if (!found) {
+        return {
+          statusCode: 200,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ arrivals: [], debug: `nodeId not found for: ${stationName}` }),
+        };
+      }
 
-    console.log('[bus-arrival] 도착정보 조회 nodeId:', nodeId, 'cityCode:', cityCode);
-    const arrRaw = await httpGet(arrUrl);
-    console.log('[bus-arrival] 도착정보 응답(앞500):', arrRaw.slice(0, 500));
+      const { nodeId, cityCode } = found;
+      const result = await fetchArrivalList(nodeId, cityCode);
 
-    let arrData;
-    try {
-      arrData = JSON.parse(arrRaw);
-    } catch {
-      console.log('[bus-arrival] JSON 파싱 실패 — 응답이 XML일 수 있음:', arrRaw.slice(0, 200));
-      return {
-        statusCode: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arrivals: [], debug: 'arrival response not JSON' }),
-      };
+      if (!result || !result.list.length) {
+        return {
+          statusCode: 200,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ arrivals: [], debug: `no arrivals for nodeId=${nodeId} cityCode=${cityCode}` }),
+        };
+      }
+
+      list = result.list;
     }
 
-    const arrResultCode = arrData?.response?.header?.resultCode;
-    if (arrResultCode && arrResultCode !== '00') {
-      console.log('[bus-arrival] 도착정보 TAGO 오류:', arrResultCode, arrData?.response?.header?.resultMsg);
-      return {
-        statusCode: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arrivals: [], debug: `TAGO error: ${arrResultCode}` }),
-      };
-    }
-
-    const totalCount = arrData?.response?.body?.totalCount ?? 0;
-    const items = arrData?.response?.body?.items?.item;
-    console.log('[bus-arrival] 도착정보 totalCount:', totalCount, 'items 타입:', Array.isArray(items) ? `배열(${items.length})` : typeof items);
-
-    if (!items || totalCount === 0) {
-      return {
-        statusCode: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arrivals: [], debug: `no arrivals, totalCount=${totalCount}` }),
-      };
-    }
-
-    const list = Array.isArray(items) ? items : [items];
     console.log('[bus-arrival] item[0] 전체 필드:', JSON.stringify(list[0]));
 
     // 버스 번호 필터 (busNos가 있을 때)
