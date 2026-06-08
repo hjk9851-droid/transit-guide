@@ -20,7 +20,7 @@ function httpGet(url) {
       res.on('error', reject);
     });
     req.on('error', reject);
-    req.setTimeout(8000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.setTimeout(3000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
@@ -44,8 +44,8 @@ function nameVariants(name) {
   return [...new Set(variants)].filter(Boolean);
 }
 
-// 우선순위 도시코드: 서울→경기→인천→대전→부산→대구→광주
-const CITY_CODES = [11, 31, 23, 22, 6, 25, 26];
+// 도시코드: 서울(11) → 경기(31) — 너무 많은 조합 시도 시 Netlify 함수 타임아웃 발생하여 2개로 제한
+const CITY_CODES = [11, 31];
 
 // TAGO getSttnNoList로 nodeId 조회 (도시코드 + 이름 조합 순차 시도)
 async function findNodeId(stationName) {
