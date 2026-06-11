@@ -1299,42 +1299,30 @@ async function fetchSubwayArrival(stationName, lineName, el) {
     .trim();
 
   const apiPath = `/api/subway/${SUBWAY_KEY}/json/realtimeStationArrival/0/5/${encodeURIComponent(name)}`;
-  // 1순위: Netlify CDN 프록시 (netlify.toml에서 swopenapi로 포워딩)
-  // 2순위: HTTPS 직접 호출
-  const urls = [
-    `/subway-proxy${apiPath}`,
-    `https://swopenapi.seoul.go.kr${apiPath}`,
-  ];
+  // Netlify CDN 프록시 경로로만 호출 (netlify.toml에서 swopenapi로 포워딩)
+  const url = `/subway-proxy${apiPath}`;
   console.log('[지하철RT] 역명:', stationName, '→', name, '/ 호선:', lineName);
-  console.log('[지하철RT] 시도할 URL 목록 (순서대로):', urls);
+  console.log('[지하철RT] 호출 URL (전체):', url);
 
   let data = null;
-  for (const url of urls) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    console.log('[지하철RT] HTTP 상태:', res.status, '/', url);
+
+    const raw = await res.text();
+    // API 응답 raw JSON 출력
+    console.log('[지하철RT] 응답 raw JSON:', raw);
+
     try {
-      const isProxy = url.startsWith('/subway-proxy');
-      console.log(`[지하철RT] → ${isProxy ? 'Netlify 프록시 경로(/subway-proxy) 사용' : 'swopenapi.seoul.go.kr 직접 HTTPS 호출'}`);
-      // 1. 실제로 호출하는 URL 전체 출력 (디버깅용 — 키 노출되지만 자기 키이므로 그대로 출력)
-      console.log('[지하철RT] 호출 URL (전체):', url);
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      console.log('[지하철RT] HTTP 상태:', res.status, '/', url);
-
-      const raw = await res.text();
-      // 2. API 응답 raw JSON 출력
-      console.log('[지하철RT] 응답 raw JSON:', raw);
-
-      try {
-        data = JSON.parse(raw);
-      } catch (parseErr) {
-        console.warn('[지하철RT] JSON 파싱 실패:', parseErr.message);
-        data = null;
-        continue;
-      }
-      console.log('[지하철RT] 응답 keys:', Object.keys(data));
-      break;
-    } catch(e) {
-      console.warn('[지하철RT] 실패:', e.message, '/', url);
+      data = JSON.parse(raw);
+    } catch (parseErr) {
+      console.warn('[지하철RT] JSON 파싱 실패:', parseErr.message);
       data = null;
     }
+    if (data) console.log('[지하철RT] 응답 keys:', Object.keys(data));
+  } catch(e) {
+    console.warn('[지하철RT] 실패:', e.message, '/', url);
+    data = null;
   }
 
   if (!data) {
