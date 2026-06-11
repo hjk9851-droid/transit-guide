@@ -1046,8 +1046,9 @@ function buildStepRow(sp, prevSp, nextSp) {
     const stop0 = sp.passStopList?.stations?.[0] || {};
     const arsId     = stop0.arsID     || stop0.arsId     || stop0.ARS_ID     || '';
     const stationId = stop0.stationID || stop0.stationId || stop0.STATION_ID || '';
-    console.log('[버스RT] stationName:', busStationName, 'buses:', buses, 'arsId:', arsId, 'stationId:', stationId, '/ stop0:', JSON.stringify(stop0));
-    if (busStationName) fetchBusArrival(busStationName, buses, arsId, stationId, rtBox);
+    const stationCityCode = stop0.stationCityCode || stop0.STATION_CITY_CODE || '';
+    console.log('[버스RT] stationName:', busStationName, 'buses:', buses, 'arsId:', arsId, 'stationId:', stationId, 'stationCityCode:', stationCityCode, '/ stop0:', JSON.stringify(stop0));
+    if (busStationName) fetchBusArrival(busStationName, buses, arsId, stationId, stationCityCode, rtBox);
     else rtBox.style.display = 'none';
 
     if (sp.startX) {
@@ -1236,12 +1237,13 @@ function showRouteTextModal(txt) {
 ════════════════════════════════════ */
 // Netlify Function(/.netlify/functions/bus-arrival)을 통해 TAGO API 호출
 // (브라우저 직접 호출은 TAGO가 CORS/Forbidden을 반환하여 서버 경유로 복원)
-async function fetchBusArrival(stationName, busNos, arsId, stationId, el) {
-  console.log('[버스RT] 함수 시작', stationName, '/ busNos:', busNos, '/ arsId:', arsId, '/ stationId:', stationId);
+async function fetchBusArrival(stationName, busNos, arsId, stationId, stationCityCode, el) {
+  console.log('[버스RT] 함수 시작', stationName, '/ busNos:', busNos, '/ arsId:', arsId, '/ stationId:', stationId, '/ stationCityCode:', stationCityCode);
   try {
     const params = new URLSearchParams({ stationName, busNos });
     if (arsId && arsId !== '0') params.set('arsId', arsId);
     if (stationId && stationId !== '0') params.set('stationId', stationId);
+    if (stationCityCode) params.set('stationCityCode', stationCityCode);
     const url = `/.netlify/functions/bus-arrival?${params}`;
     console.log('[버스RT] 호출 URL:', url);
 
