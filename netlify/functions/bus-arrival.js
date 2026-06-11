@@ -39,27 +39,27 @@ function xmlBlocks(xml, tag) {
   return blocks;
 }
 
-// 서울시 버스도착정보 (정류소 고유ID = ODsay stationID 기반, 저상버스 도착정보 API)
-async function fetchSeoulBusArrival(stId, busNoArr) {
+// 서울시 버스도착정보 (정류소 고유ID(stId) 또는 정류소번호(arsId) 기반, 저상버스 도착정보 API)
+async function fetchSeoulBusArrival(idParam, idValue, busNoArr) {
   const url =
     `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByStId` +
-    `?serviceKey=${SEOUL_BUS_KEY}` +
-    `&stId=${encodeURIComponent(stId)}`;
+    `?ServiceKey=${encodeURIComponent(SEOUL_BUS_KEY)}` +
+    `&${idParam}=${encodeURIComponent(idValue)}`;
 
-  console.log(`[bus-arrival] 서울시 버스 API 조회 시도 stId=${stId}`);
+  console.log(`[bus-arrival] 서울시 버스 API 조회 시도 ${idParam}=${idValue}`);
 
   let raw;
   try {
     raw = await httpGet(url);
   } catch (e) {
-    console.log(`[bus-arrival] 서울시 버스 API 조회 실패 stId=${stId}:`, e.message);
+    console.log(`[bus-arrival] 서울시 버스 API 조회 실패 ${idParam}=${idValue}:`, e.message);
     return null;
   }
-  console.log(`[bus-arrival] 서울시 버스 API 응답(앞400) stId=${stId}:`, raw.slice(0, 400));
+  console.log(`[bus-arrival] 서울시 버스 API 응답(앞400) ${idParam}=${idValue}:`, raw.slice(0, 400));
 
   const headerCd = xmlTag(raw, 'headerCd');
   if (headerCd && headerCd !== '0') {
-    console.log(`[bus-arrival] 서울시 버스 API 오류 stId=${stId}:`, headerCd, xmlTag(raw, 'headerMsg'));
+    console.log(`[bus-arrival] 서울시 버스 API 오류 ${idParam}=${idValue}:`, headerCd, xmlTag(raw, 'headerMsg'));
     return { list: [] };
   }
 
@@ -69,7 +69,7 @@ async function fetchSeoulBusArrival(stId, busNoArr) {
     arrmsg2: xmlTag(block, 'arrmsg2'),
   }));
 
-  console.log(`[bus-arrival] 서울시 버스 API 결과 stId=${stId}: ${items.length}건`, items[0] ? JSON.stringify(items[0]) : '');
+  console.log(`[bus-arrival] 서울시 버스 API 결과 ${idParam}=${idValue}: ${items.length}건`, items[0] ? JSON.stringify(items[0]) : '');
 
   const filtered = busNoArr.length
     ? items.filter(i => busNoArr.includes(i.routeNo))
@@ -165,18 +165,22 @@ exports.handler = async (event) => {
   const busNoArr = busNos ? busNos.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   try {
-    // ── STEP -1: 서울시 버스도착정보 API (stId = ODsay stationID) 우선 시도
-    if (stationId && stationId !== '0') {
-      const seoulResult = await fetchSeoulBusArrival(stationId, busNoArr);
+    // ── STEP -1: 서울시 버스도착정보 API. stId(=ODsay stationID) 먼저, 안 되면 arsId로 시도
+    const seoulCandidates = [];
+    if (stationId && stationId !== '0') seoulCandidates.push(['stId', stationId]);
+    if (arsId && arsId !== '0') seoulCandidates.push(['arsId', arsId]);
+
+    for (const [idParam, idValue] of seoulCandidates) {
+      const seoulResult = await fetchSeoulBusArrival(idParam, idValue, busNoArr);
       if (seoulResult && seoulResult.list.length) {
-        console.log(`[bus-arrival] ✅ 서울시 버스 API 성공 stId=${stationId} 건수=${seoulResult.list.length}`);
+        console.log(`[bus-arrival] ✅ 서울시 버스 API 성공 ${idParam}=${idValue} 건수=${seoulResult.list.length}`);
         return {
           statusCode: 200,
           headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
           body: JSON.stringify({ arrivals: seoulResult.list.slice(0, 3) }),
         };
       }
-      console.log(`[bus-arrival] 서울시 버스 API 결과 없음 stId=${stationId} — TAGO로 폴백`);
+      console.log(`[bus-arrival] 서울시 버스 API 결과 없음 ${idParam}=${idValue}`);
     }
 
     let list = null;
