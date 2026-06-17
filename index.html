@@ -667,13 +667,33 @@ if (SR) {
   };
 }
 
+function hasAndroidBridge() {
+  return !!(window.AndroidBridge && typeof window.AndroidBridge.startVoice === 'function');
+}
+
+// 네이티브 앱(MainActivity.java)에서 SpeechRecognizer 결과를 이 콜백으로 전달함
+window.onAndroidVoiceResult = function(text) {
+  if (text) {
+    searchKakao(text);
+  } else {
+    show('s-main');
+    toast('말씀이 없었어요.\n다시 눌러주세요.');
+  }
+};
+
 function doStartVoice() {
   show('s-listen');
+  if (hasAndroidBridge()) {
+    try { window.AndroidBridge.startVoice(); }
+    catch(e) { show('s-main'); toast('마이크를 시작하지 못했어요.'); }
+    return;
+  }
   try { recognition.start(); }
   catch(e) { show('s-main'); toast('마이크를 시작하지 못했어요.'); }
 }
 
 async function startVoice() {
+  if (hasAndroidBridge()) { doStartVoice(); return; }
   if (!recognition) {
     toast('이 기기는 음성 인식이 안 돼요.\n아래 입력창을 이용해 주세요.');
     return;
