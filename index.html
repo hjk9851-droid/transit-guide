@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1976D2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,7 +14,7 @@
     /* ════ 기본 ════ */
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body {
-      width:100%; height:100%; overflow:hidden;
+      width:100%; height:100%; height:100dvh; overflow:hidden;
       background:#FFFFFF;
       font-family:'Noto Sans KR','맑은 고딕',AppleSDGothicNeo,sans-serif;
       color:#111111;
@@ -25,7 +25,7 @@
       display:none; position:fixed; inset:0;
       flex-direction:column; overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding-bottom:90px;
+      padding-bottom:calc(90px + env(safe-area-inset-bottom, 0px));
       background:#FFFFFF;
     }
     .screen.active { display:flex; }
@@ -33,7 +33,8 @@
     /* ════ 하단 고정 전화 버튼 ════ */
     #helpBar { position:fixed; bottom:0; left:0; right:0; z-index:1000; }
     #helpBtn {
-      width:100%; min-height:72px;
+      width:100%; min-height:calc(72px + env(safe-area-inset-bottom, 0px));
+      padding-bottom:env(safe-area-inset-bottom, 0px);
       background:#C62828; border:none;
       color:#fff; font-size:24px; font-weight:900;
       cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px;
@@ -1049,7 +1050,7 @@ function buildStepRow(sp, prevSp, nextSp) {
     if (nextStop) {
       const blueBox = document.createElement('div');
       blueBox.className = 'step-box-blue';
-      blueBox.innerHTML = `다음 정류장: <strong>"${nextStop}"</strong> 방향 버스`;
+      blueBox.innerHTML = `다음 정류장이 <strong>"${nextStop}"</strong>이면 맞아요`;
       inner.appendChild(blueBox);
     }
 
@@ -1097,7 +1098,7 @@ function buildStepRow(sp, prevSp, nextSp) {
     if (nextStop) {
       const blueBox = document.createElement('div');
       blueBox.className = 'step-box-blue';
-      blueBox.innerHTML = `다음역: <strong>"${nextStop}"</strong> 방향 열차`;
+      blueBox.innerHTML = `다음 역이 <strong>"${nextStop}"</strong>이면 맞아요`;
       inner.appendChild(blueBox);
     }
 
@@ -1111,8 +1112,8 @@ function buildStepRow(sp, prevSp, nextSp) {
     rtBox.className = 'rt-box loading';
     rtBox.textContent = '🔄 실시간 도착 정보 불러오는 중...';
     inner.appendChild(rtBox);
-    console.log('[지하철RT] stationName:', stationName, 'lane:', lane.name);
-    if (stationName) fetchSubwayArrival(stationName, lane.name, rtBox);
+    console.log('[지하철RT] stationName:', stationName, 'lane:', lane.name, 'way:', sp.way);
+    if (stationName) fetchSubwayArrival(stationName, lane.name, rtBox, sp.way);
 
     row.appendChild(inner);
   }
@@ -1313,7 +1314,7 @@ function parseArvlMsg(msg2) {
   return msg2;
 }
 
-async function fetchSubwayArrival(stationName, lineName, el) {
+async function fetchSubwayArrival(stationName, lineName, el, wayText) {
   // 역명 정제: "강남역(2호선)" → "강남"
   const name = stationName
     .replace(/\(.*?\)/g, '')
@@ -1363,9 +1364,20 @@ async function fetchSubwayArrival(stationName, lineName, el) {
   //     데이터가 와도 "정보 없음"으로 잘못 처리될 수 있음)
   if (list.length) {
     const lineKey = lineName ? lineName.replace(/호선$|선$/g, '').trim() : '';
-    const filtered = lineKey
+    let filtered = lineKey
       ? list.filter(i => (i.trainLineNm || '').includes(lineKey))
       : list;
+
+    // ODsay의 way(목적지 방향, 예: "오이도방면")로 상행/하행(또는 내선/외선) 판단
+    const dirCore = wayText ? wayText.replace(/방면$/, '').replace(/행$/, '').trim() : '';
+    if (dirCore) {
+      const dirFiltered = filtered.filter(i => {
+        const candidates = [i.bstatnNm, i.updnLine, i.trainLineNm].filter(Boolean);
+        return candidates.some(c => c.includes(dirCore) || dirCore.includes(c));
+      });
+      if (dirFiltered.length) filtered = dirFiltered;
+    }
+
     const show = (filtered.length ? filtered : list).slice(0, 2);
 
     el.className = 'rt-box';
