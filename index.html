@@ -14,7 +14,8 @@
     /* ════ 기본 ════ */
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body {
-      width:100%; height:100%; height:100dvh; overflow:hidden;
+      width:100%; max-width:100vw; height:100%; height:100dvh;
+      overflow:hidden; overflow-x:hidden;
       background:#FFFFFF;
       font-family:'Noto Sans KR','맑은 고딕',AppleSDGothicNeo,sans-serif;
       color:#111111;
@@ -23,6 +24,7 @@
     /* ════ 화면 전환 ════ */
     .screen {
       display:none; position:fixed; inset:0;
+      max-width:100vw; overflow-x:hidden;
       flex-direction:column; overflow-y:auto;
       -webkit-overflow-scrolling:touch;
       padding-bottom:calc(90px + env(safe-area-inset-bottom, 0px));
@@ -87,7 +89,7 @@
     }
     .ripple-wrap {
       position:relative;
-      width:clamp(64px,16vw,90px); height:clamp(64px,16vw,90px);
+      width:100px; height:100px; margin:0 auto;
       display:flex; align-items:center; justify-content:center;
     }
     .ripple {
@@ -101,7 +103,7 @@
 
     #micBtn {
       position:relative; z-index:10;
-      width:clamp(54px,13vw,76px); height:clamp(54px,13vw,76px);
+      width:80px; height:80px; margin:0 auto;
       border-radius:50%; border:none; cursor:pointer;
       background:#1976D2;
       transition:transform .12s;
@@ -115,16 +117,18 @@
     .or-divider { font-size:12px; color:#AAAAAA; letter-spacing:2px; }
 
     /* 텍스트 입력 */
-    .text-input-row { display:flex; align-items:center; gap:10px; width:100%; max-width:500px; }
+    .text-input-row { box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; max-width:500px; }
     #textInput {
-      flex:1; background:#fff; border:3px solid #AAAAAA; border-radius:14px;
+      box-sizing:border-box; flex:1; min-width:0;
+      background:#fff; border:3px solid #AAAAAA; border-radius:14px;
       padding:12px 16px; font-size:18px; color:#111111;
       outline:none; caret-color:#1976D2; font-family:inherit; min-height:52px;
     }
     #textInput::placeholder { color:#AAAAAA; }
     #textInput:focus { border-color:#1976D2; }
     #textSearchBtn {
-      flex-shrink:0; background:#1976D2; border:none; border-radius:14px;
+      box-sizing:border-box; flex-shrink:0;
+      background:#1976D2; border:none; border-radius:14px;
       padding:12px 18px; font-size:18px; font-weight:900;
       color:#fff; cursor:pointer; min-height:52px; min-width:80px;
     }
@@ -1242,16 +1246,31 @@ function buildNarrationText(path) {
   return txt;
 }
 
-function showRouteTextModal(txt) {
-  document.getElementById('route-text-modal')?.remove();
+function showCaptions(txt) {
+  hideCaptions();
   const modal = document.createElement('div');
-  modal.id = 'route-text-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:10000;display:flex;flex-direction:column;align-items:center;padding:24px 20px 110px;overflow-y:auto;gap:16px;';
+  modal.id = 'caption-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:10000;display:flex;flex-direction:column;align-items:center;padding:20px 20px 110px;overflow-y:auto;gap:16px;';
   modal.innerHTML = `
-    <div style="font-size:24px;font-weight:900;color:#fff;text-align:center;margin-top:12px;flex-shrink:0">📋 경로 안내</div>
-    <div style="font-size:22px;font-weight:700;color:#fff;line-height:2.1;white-space:pre-wrap;background:rgba(255,255,255,.1);border-radius:16px;padding:22px;width:100%;max-width:520px;">${txt}</div>
-    <button style="background:#fff;color:#111;border:none;border-radius:16px;padding:20px 48px;font-size:24px;font-weight:900;cursor:pointer;min-height:70px;flex-shrink:0;" onclick="document.getElementById('route-text-modal').remove()">닫기 ✕</button>`;
+    <div style="width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="font-size:22px;font-weight:900;color:#fff">🔊 소리로 듣는 중…</div>
+      <button id="captionCloseBtn" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:48px;height:48px;color:#fff;font-size:22px;font-weight:900;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:#fff;line-height:2.1;white-space:pre-wrap;background:rgba(255,255,255,.1);border-radius:16px;padding:22px;width:100%;max-width:520px;">${txt}</div>`;
   document.body.appendChild(modal);
+  document.getElementById('captionCloseBtn').addEventListener('click', stopSpeaking);
+}
+
+function hideCaptions() {
+  document.getElementById('caption-modal')?.remove();
+}
+
+function stopSpeaking() {
+  if (hasAndroidBridge() && typeof window.AndroidBridge.stopSpeak === 'function') {
+    try { window.AndroidBridge.stopSpeak(); } catch (e) {}
+  }
+  if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+  hideCaptions();
 }
 
 /* ════════════════════════════════════
@@ -1410,6 +1429,10 @@ function speakRoute(path) {
   const txt = buildNarrationText(path);
   const cleanTxt = txt.replace(/[🚶🚌🚇🔄✅📋]/gu, '');
 
+  // 소리 재생과 동시에 같은 내용을 자막으로 화면에 표시
+  // (다시 누르면 hideCaptions()→showCaptions()로 처음부터 다시 시작됨)
+  showCaptions(txt);
+
   // Android 앱(WebView)에서는 네이티브 TextToSpeech로 직접 소리를 낸다.
   // (WebView 환경에서 speechSynthesis가 무음으로 실패하는 문제 해결)
   if (hasAndroidBridge() && typeof window.AndroidBridge.speak === 'function') {
@@ -1417,21 +1440,11 @@ function speakRoute(path) {
     catch (e) { /* 네이티브 실패 시 아래 speechSynthesis로 폴백 */ }
   }
 
-  if (!window.speechSynthesis) { showRouteTextModal(txt); return; }
+  if (!window.speechSynthesis) return; // 자막만 표시됨
 
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(cleanTxt);
   u.lang = 'ko-KR'; u.rate = 0.9; u.pitch = 1.0; u.volume = 1;
-
-  let started = false;
-  u.onstart = () => { started = true; };
-  u.onerror  = () => { clearTimeout(fbTimer); showRouteTextModal(txt); };
-  u.onend    = () => clearTimeout(fbTimer);
-
-  const fbTimer = setTimeout(() => {
-    if (!started) { window.speechSynthesis.cancel(); showRouteTextModal(txt); }
-  }, 3000);
-
   window.speechSynthesis.speak(u);
 }
 
@@ -1594,8 +1607,8 @@ function handleBackPress() {
     overlay.style.display = 'none';
     return;
   }
-  const routeModal = document.getElementById('route-text-modal');
-  if (routeModal) { routeModal.remove(); return; }
+  // 자막(소리로 듣기)이 떠 있으면 TTS 중단 + 자막 닫기
+  if (document.getElementById('caption-modal')) { stopSpeaking(); return; }
 
   const cur = getCurrentScreenId();
 
