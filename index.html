@@ -35,11 +35,11 @@
     #helpBtn {
       width:100%; min-height:calc(72px + env(safe-area-inset-bottom, 0px));
       padding-bottom:env(safe-area-inset-bottom, 0px);
-      background:#C62828; border:none;
+      background:#2E7D32; border:none;
       color:#fff; font-size:24px; font-weight:900;
       cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px;
     }
-    #helpBtn:active { background:#8E0000; }
+    #helpBtn:active { background:#1B5E20; }
 
     /* ════ GPS 칩 ════ */
     .gps-chip {
@@ -53,7 +53,7 @@
     .gps-fail    { background:#FFEBEE; color:#B71C1C; border-color:#E53935; cursor:pointer; }
 
     /* ════ 메인 화면 ════ */
-    #s-main { background:#F5F7FA; overflow:hidden; }
+    #s-main { background:#F5F7FA; overflow-y:auto; }
 
     .main-title {
       text-align:center; margin:10px 16px 4px;
@@ -74,20 +74,20 @@
     .saved-name { font-size:20px; font-weight:800; text-align:center; color:#111111; }
     .empty-hint {
       grid-column:1/-1; text-align:center; color:#777777;
-      font-size:20px; line-height:2.2;
-      padding:18px 12px; background:#fff;
+      font-size:18px; line-height:1.6;
+      padding:12px 12px; background:#fff;
       border-radius:20px; border:3px dashed #BBBBBB;
     }
 
     /* 마이크 섹션 */
     .mic-section {
       display:flex; flex-direction:column; align-items:center;
-      gap:clamp(10px,2.5vh,20px); padding:6px 16px 4px; flex:1;
+      gap:clamp(8px,2vh,16px); padding:6px 16px 4px; flex:1;
       justify-content:center; min-height:0;
     }
     .ripple-wrap {
       position:relative;
-      width:clamp(130px,36vw,190px); height:clamp(130px,36vw,190px);
+      width:clamp(100px,26vw,150px); height:clamp(100px,26vw,150px);
       display:flex; align-items:center; justify-content:center;
     }
     .ripple {
@@ -101,7 +101,7 @@
 
     #micBtn {
       position:relative; z-index:10;
-      width:clamp(110px,30vw,160px); height:clamp(110px,30vw,160px);
+      width:clamp(86px,22vw,130px); height:clamp(86px,22vw,130px);
       border-radius:50%; border:none; cursor:pointer;
       background:#1976D2;
       transition:transform .12s;
@@ -110,9 +110,9 @@
     }
     #micBtn:active { transform:scale(.93); background:#1565C0; }
     .mic-svg { width:48%; height:48%; fill:#fff; }
-    .mic-label { font-size:26px; font-weight:900; text-align:center; color:#111111; line-height:1.5; }
+    .mic-label { font-size:22px; font-weight:900; text-align:center; color:#111111; line-height:1.4; }
     .mic-sub { font-size:.75em; font-weight:500; color:#555555; }
-    .or-divider { font-size:18px; color:#AAAAAA; letter-spacing:3px; }
+    .or-divider { font-size:16px; color:#AAAAAA; letter-spacing:3px; }
 
     /* 텍스트 입력 */
     .text-input-row { display:flex; align-items:center; gap:12px; width:100%; max-width:500px; }
@@ -1412,7 +1412,7 @@ function speakRoute(path) {
 
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(txt.replace(/[🚶🚌🚇🔄✅📋]/gu, ''));
-  u.lang = 'ko-KR'; u.rate = 0.82; u.pitch = 1;
+  u.lang = 'ko-KR'; u.rate = 0.9; u.pitch = 1.0; u.volume = 1;
 
   let started = false;
   u.onstart = () => { started = true; };
