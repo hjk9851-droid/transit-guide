@@ -43,8 +43,8 @@
 
     /* ════ GPS 칩 ════ */
     .gps-chip {
-      margin:10px 16px 0; padding:10px 16px;
-      border-radius:12px; font-size:20px; font-weight:700; text-align:center;
+      margin:6px 16px 0; padding:6px 14px;
+      border-radius:12px; font-size:16px; font-weight:700; text-align:center;
       border:2px solid;
     }
     .gps-init    { background:#F5F5F5; color:#555555; border-color:#CCCCCC; }
@@ -56,38 +56,38 @@
     #s-main { background:#F5F7FA; overflow-y:auto; }
 
     .main-title {
-      text-align:center; margin:10px 16px 4px;
-      font-size:clamp(22px,6vw,30px); font-weight:900; color:#111111; line-height:1.3;
+      text-align:center; margin:6px 16px 2px;
+      font-size:clamp(18px,5vw,24px); font-weight:900; color:#111111; line-height:1.25;
     }
-    .main-sub { text-align:center; font-size:18px; color:#444444; margin-bottom:8px; }
+    .main-sub { text-align:center; font-size:15px; color:#444444; margin-bottom:4px; }
 
     /* 저장된 장소 */
-    #savedGrid { padding:0 14px; display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:6px; }
+    #savedGrid { padding:0 14px; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:4px; }
     .saved-btn {
-      background:#fff; border:3px solid #1976D2; border-radius:20px;
-      padding:12px 12px; cursor:pointer;
-      display:flex; flex-direction:column; align-items:center; gap:8px;
-      min-height:90px;
+      background:#fff; border:3px solid #1976D2; border-radius:16px;
+      padding:8px 10px; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      min-height:64px;
     }
     .saved-btn:active { background:#E3F2FD; }
-    .saved-icon { font-size:44px; line-height:1; }
-    .saved-name { font-size:20px; font-weight:800; text-align:center; color:#111111; }
+    .saved-icon { font-size:32px; line-height:1; }
+    .saved-name { font-size:16px; font-weight:800; text-align:center; color:#111111; }
     .empty-hint {
       grid-column:1/-1; text-align:center; color:#777777;
-      font-size:18px; line-height:1.6;
-      padding:12px 12px; background:#fff;
-      border-radius:20px; border:3px dashed #BBBBBB;
+      font-size:14px; line-height:1.4;
+      padding:8px 10px; background:#fff;
+      border-radius:16px; border:3px dashed #BBBBBB;
     }
 
     /* 마이크 섹션 */
     .mic-section {
       display:flex; flex-direction:column; align-items:center;
-      gap:clamp(8px,2vh,16px); padding:6px 16px 4px; flex:1;
+      gap:clamp(4px,1.2vh,10px); padding:2px 16px 2px; flex:1;
       justify-content:center; min-height:0;
     }
     .ripple-wrap {
       position:relative;
-      width:clamp(100px,26vw,150px); height:clamp(100px,26vw,150px);
+      width:clamp(64px,16vw,90px); height:clamp(64px,16vw,90px);
       display:flex; align-items:center; justify-content:center;
     }
     .ripple {
@@ -101,7 +101,7 @@
 
     #micBtn {
       position:relative; z-index:10;
-      width:clamp(86px,22vw,130px); height:clamp(86px,22vw,130px);
+      width:clamp(54px,13vw,76px); height:clamp(54px,13vw,76px);
       border-radius:50%; border:none; cursor:pointer;
       background:#1976D2;
       transition:transform .12s;
@@ -110,33 +110,33 @@
     }
     #micBtn:active { transform:scale(.93); background:#1565C0; }
     .mic-svg { width:48%; height:48%; fill:#fff; }
-    .mic-label { font-size:22px; font-weight:900; text-align:center; color:#111111; line-height:1.4; }
+    .mic-label { font-size:15px; font-weight:900; text-align:center; color:#111111; line-height:1.25; }
     .mic-sub { font-size:.75em; font-weight:500; color:#555555; }
-    .or-divider { font-size:16px; color:#AAAAAA; letter-spacing:3px; }
+    .or-divider { font-size:12px; color:#AAAAAA; letter-spacing:2px; }
 
     /* 텍스트 입력 */
-    .text-input-row { display:flex; align-items:center; gap:12px; width:100%; max-width:500px; }
+    .text-input-row { display:flex; align-items:center; gap:10px; width:100%; max-width:500px; }
     #textInput {
-      flex:1; background:#fff; border:3px solid #AAAAAA; border-radius:16px;
-      padding:18px 20px; font-size:22px; color:#111111;
-      outline:none; caret-color:#1976D2; font-family:inherit; min-height:70px;
+      flex:1; background:#fff; border:3px solid #AAAAAA; border-radius:14px;
+      padding:12px 16px; font-size:18px; color:#111111;
+      outline:none; caret-color:#1976D2; font-family:inherit; min-height:52px;
     }
     #textInput::placeholder { color:#AAAAAA; }
     #textInput:focus { border-color:#1976D2; }
     #textSearchBtn {
-      flex-shrink:0; background:#1976D2; border:none; border-radius:16px;
-      padding:18px 22px; font-size:22px; font-weight:900;
-      color:#fff; cursor:pointer; min-height:70px; min-width:96px;
+      flex-shrink:0; background:#1976D2; border:none; border-radius:14px;
+      padding:12px 18px; font-size:18px; font-weight:900;
+      color:#fff; cursor:pointer; min-height:52px; min-width:80px;
     }
     #textSearchBtn:active { background:#1565C0; }
 
     /* 설정 버튼 */
     #settingsBtn {
-      background:#fff; border:3px solid #CCCCCC; border-radius:20px;
-      font-size:18px; font-weight:700; color:#555555; cursor:pointer;
-      padding:10px 24px; min-height:48px;
-      display:flex; align-items:center; justify-content:center; gap:8px;
-      margin:4px 16px 8px; align-self:stretch;
+      background:#fff; border:3px solid #CCCCCC; border-radius:16px;
+      font-size:14px; font-weight:700; color:#555555; cursor:pointer;
+      padding:6px 20px; min-height:38px;
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      margin:2px 16px 4px; align-self:stretch;
     }
     #settingsBtn:active { background:#F0F0F0; }
 
@@ -1408,10 +1408,19 @@ async function fetchSubwayArrival(stationName, lineName, el, wayText) {
 
 function speakRoute(path) {
   const txt = buildNarrationText(path);
+  const cleanTxt = txt.replace(/[🚶🚌🚇🔄✅📋]/gu, '');
+
+  // Android 앱(WebView)에서는 네이티브 TextToSpeech로 직접 소리를 낸다.
+  // (WebView 환경에서 speechSynthesis가 무음으로 실패하는 문제 해결)
+  if (hasAndroidBridge() && typeof window.AndroidBridge.speak === 'function') {
+    try { window.AndroidBridge.speak(cleanTxt); return; }
+    catch (e) { /* 네이티브 실패 시 아래 speechSynthesis로 폴백 */ }
+  }
+
   if (!window.speechSynthesis) { showRouteTextModal(txt); return; }
 
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(txt.replace(/[🚶🚌🚇🔄✅📋]/gu, ''));
+  const u = new SpeechSynthesisUtterance(cleanTxt);
   u.lang = 'ko-KR'; u.rate = 0.9; u.pitch = 1.0; u.volume = 1;
 
   let started = false;
@@ -1555,6 +1564,71 @@ function initPermissionFlow() {
     initGPS();
   });
 }
+
+/* ════════════════════════════════════
+   뒤로가기 (Android 하드웨어 뒤로가기 버튼)
+   MainActivity.java의 onBackPressed()가
+   window.handleBackPress()를 호출한다.
+════════════════════════════════════ */
+const BACK_TARGET = {
+  's-listen': 's-main',
+  's-load':   's-main',
+  's-places': 's-main',
+  's-setup':  's-main',
+  's-result': 's-confirm',
+};
+const NO_PREV_SCREENS = ['s-main', 's-perm'];
+
+let backPressCount = 0;
+let backPressTimer = null;
+
+function getCurrentScreenId() {
+  const active = document.querySelector('.screen.active');
+  return active ? active.id : 's-main';
+}
+
+function handleBackPress() {
+  // 열려있는 오버레이/모달이 있으면 그것부터 닫기
+  const overlay = document.getElementById('mic-perm-overlay');
+  if (overlay && overlay.style.display === 'flex') {
+    overlay.style.display = 'none';
+    return;
+  }
+  const routeModal = document.getElementById('route-text-modal');
+  if (routeModal) { routeModal.remove(); return; }
+
+  const cur = getCurrentScreenId();
+
+  // 메인 화면 / 권한 요청 화면 : 두 번 눌러야 종료
+  if (NO_PREV_SCREENS.includes(cur)) {
+    backPressCount++;
+    if (backPressCount >= 2) {
+      clearTimeout(backPressTimer);
+      backPressCount = 0;
+      if (hasAndroidBridge() && typeof window.AndroidBridge.exitApp === 'function') {
+        window.AndroidBridge.exitApp();
+      }
+      return;
+    }
+    toast('한 번 더 누르면 종료됩니다', 2000);
+    clearTimeout(backPressTimer);
+    backPressTimer = setTimeout(() => { backPressCount = 0; }, 2000);
+    return;
+  }
+
+  // 그 외 화면 : 이전 화면으로 이동
+  if (cur === 's-listen') {
+    if (recognition) try { recognition.abort(); } catch (e) {}
+    show('s-main');
+    return;
+  }
+  if (cur === 's-confirm') {
+    show(currentPlaceSource === 'saved' ? 's-main' : 's-places');
+    return;
+  }
+  show(BACK_TARGET[cur] || 's-main');
+}
+window.handleBackPress = handleBackPress;
 
 /* ════════════════════════════════════
    초기 실행
